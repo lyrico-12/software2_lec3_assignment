@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h> // for error catch
+#include <assert.h>
 
 // Structure for canvas
 typedef struct canvas {
@@ -14,13 +15,17 @@ typedef struct canvas {
     char pen;
 } Canvas;
 
-// Structure for history (2-D array)あとで消す
-typedef struct {
-    size_t max_history;
+typedef struct command {
+    char *str;
     size_t bufsize;
-    size_t hsize;
-    char **commands;
+    struct command *next;
+} Command;
+
+typedef struct history{
+    Command *begin;
+    size_t bufsize;
 } History;
+
 
 // functions for Canvas type
 Canvas *init_canvas(int width, int height, char pen);
@@ -44,18 +49,20 @@ void draw_line(Canvas *c, const int x0, const int y0, const int x1, const int y1
 Result interpret_command(const char *command, History *his, Canvas *c);
 void save_history(const char *filename, History *his);
 
+// 末尾にノードを追加
+Command* push_back(Command *begin, const char *str, size_t bufsize);
+Command* pop_back(Command *begin);
 
 int main(int argc, char **argv) {
     //for history recording
-    const int max_history = 5;
     const int bufsize = 1000;
-    History his = (History){.max_history = max_history, .bufsize = bufsize, .hsize = 0};
+    History his = (History){.begin = NULL, .bufsize = bufsize};
     
-    his.commands = (char**)malloc(his.max_history * sizeof(char*));// 5個のコマンド
-    char* tmp = (char*) malloc(his.max_history * his.bufsize * sizeof(char));
-    for (int i = 0 ; i < his.max_history ; i++) {
-        his.commands[i] = tmp + (i * his.bufsize);
-    }
+    // his.commands = (char**)malloc(his.max_history * sizeof(char*));// 5個のコマンド
+    // char* tmp = (char*) malloc(his.max_history * his.bufsize * sizeof(char));
+    // for (int i = 0 ; i < his.max_history ; i++) {
+    //     his.commands[i] = tmp + (i * his.bufsize);
+    // }
 
     int width;
     int height;
@@ -86,11 +93,11 @@ int main(int argc, char **argv) {
 
     printf("\n"); // required especially for windows env
     
-    while (his.hsize < his.max_history) {
-	    size_t hsize = his.hsize;
+    int his_num = 0;
+    while (1) {
 	    size_t bufsize = his.bufsize;
         print_canvas(c);
-        printf("%zu > ", hsize);
+        printf("%d > ", his_num);
 	    if(fgets(buf, bufsize, stdin) == NULL) break;
 	
         const Result r = interpret_command(buf, &his,c);
@@ -102,8 +109,14 @@ int main(int argc, char **argv) {
         printf("%s\n",strresult(r));
         // LINEの場合はHistory構造体に入れる
         if (r == LINE) {
-            strcpy(his.commands[his.hsize], buf);
-            his.hsize++;	    
+            his.begin = push_back(his.begin, buf, bufsize);
+            his_num++;	    
+        } else if (r == UNDO) {
+            his.begin = pop_back(his.begin);
+            if (his_num > 0) {
+                his_num--;
+            }
+            
         }
         rewind_screen(2); // command results
         clear_command(); // command itself
@@ -114,8 +127,6 @@ int main(int argc, char **argv) {
     clear_screen();
     free_canvas(c);
     
-    free(his.commands[0]);
-    free(his.commands);
     return 0;
 }
 
@@ -227,12 +238,56 @@ void save_history(const char *filename, History *his) {
 	    fprintf(stderr, "error: cannot open %s.\n", filename);
 	    return;
     }
-    
-    for (int i = 0; i < his->hsize; i++) {
-	    fprintf(fp, "%s", his->commands[i]);
+    Command *cur = his->begin;
+    while (cur != NULL) {
+	    fprintf(fp, "%s", cur->str);
+        cur = cur->next;
     }
     
     fclose(fp);
+}
+
+Command* push_back(Command *begin, const char *str, size_t bufsize) {
+    if (begin == NULL) {
+        Command *p = (Command *)malloc(sizeof(Command));
+        char *s = (char *)malloc(strlen(str) + 1);
+        strcpy(s, str);
+        *p = (Command){.str = s, .bufsize = bufsize, .next = NULL};
+        return p;   
+    } 
+
+    Command *p = begin;
+    while (p->next != NULL) {
+        p = p->next;
+    }
+    Command *q = (Command*) malloc(sizeof(Command));
+    char *s = (char *)malloc(strlen(str) + 1);
+    strcpy(s, str);
+    *q = (Command){.str = s, .bufsize = bufsize, .next = NULL};
+    p->next = q;
+
+    return begin;
+}
+
+Command*pop_back(Command *begin) {
+    if (begin == NULL) {
+        return NULL;
+    }
+    if (begin->next == NULL) {
+        free(begin->str);
+        free(begin);
+        return NULL;
+    }
+
+    Command *p = begin;
+    while(p->next->next != NULL) {
+        p = p->next;
+    }
+
+    free(p->next->str);
+    free(p->next);
+    p->next = NULL;
+    return begin;
 }
 
 Result interpret_command(const char *command, History *his, Canvas *c) {
@@ -276,12 +331,17 @@ Result interpret_command(const char *command, History *his, Canvas *c) {
     
     if (strcmp(s, "undo") == 0) {
 	    reset_canvas(c);
-	    if (his->hsize != 0){// 履歴が存在する場合
-	        for (int i = 0; i < his->hsize - 1; i++) {
-		        interpret_command(his->commands[i], his, c);// 一つ前までの履歴を順に再実行
-	        }
-	        his->hsize--;
-	    }
+        if (his->begin == NULL) {
+            return UNDO;
+        }
+
+        // 再実行
+        Command *cur = his->begin;
+        while (cur->next != NULL) {
+            interpret_command(cur->str, his, c);
+            cur = cur->next;
+        }
+
 	    return UNDO;
     }
     
@@ -311,3 +371,4 @@ char *strresult(Result res) {
     }
     return NULL;
 }
+
