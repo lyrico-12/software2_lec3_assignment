@@ -1,3 +1,2 @@
+line 10 10 20 20
 circle 40 20 10
-circle 10 10 5
-rect 10 10 10 10
