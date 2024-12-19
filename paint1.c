@@ -40,7 +40,7 @@ void clear_screen(void);
 
 // enum for interpret_command results
 // interpret_command の結果をより詳細に分割
-typedef enum res{ EXIT, LINE, RECT, UNDO, SAVE, UNKNOWN, ERRNONINT, ERRLACKARGS} Result;
+typedef enum res{ EXIT, LINE, RECT, CIRCLE, UNDO, SAVE, UNKNOWN, ERRNONINT, ERRLACKARGS} Result;
 // Result 型に応じて出力するメッセージを返す
 char *strresult(Result res);
 
@@ -48,7 +48,7 @@ int max(const int a, const int b);
 int judge_in_canvas(Canvas *c, const int x0, const int y0);
 void draw_line(Canvas *c, const int x0, const int y0, const int x1, const int y1);
 void draw_rect(Canvas *c, const int x0, const int y0, const int width, const int height);
-void draw_circle(Canvas *c, const int x0, const int y0, const int r);
+void draw_circle(Canvas *c, const int x0, const int y0, const double r);
 Result interpret_command(const char *command, History *his, Canvas *c);
 void save_history(const char *filename, History *his);
 
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
         clear_command();
         printf("%s\n",strresult(r));
         // LINEの場合はHistory構造体に入れる
-        if (r == LINE || r == RECT) {
+        if (r == LINE || r == RECT || r == CIRCLE) {
             his.begin = push_back(his.begin, buf, bufsize);
             his_num++;	    
         } else if (r == UNDO) {
@@ -240,6 +240,7 @@ void draw_line(Canvas *c, const int x0, const int y0, const int x1, const int y1
     }
 }
 
+// 長方形を描く
 void draw_rect(Canvas *c, const int x0, const int y0, const int width, const int height) {
     char pen = c->pen;
 
@@ -258,6 +259,23 @@ void draw_rect(Canvas *c, const int x0, const int y0, const int width, const int
         }
         if (judge_in_canvas(c, x0 + width - 1, y0 + h)) {
             c->canvas[x0 + width - 1][y0 + h] = pen;
+        }
+    }
+}
+
+// 円を描く
+void draw_circle(Canvas *c, const int x0, const int y0, const double r) {
+    char pen = c->pen;
+    const int width = c->width;
+    const int height = c->height;
+    int dist;
+
+    for (int w = 0; w < width; w++) {
+        for (int h = 0; h < height; h++) {
+            dist = (w - x0) * (w - x0) + (h - y0) * (h - y0);
+            if (dist > r * r - 5.0 && dist < r * r + 5.0 && judge_in_canvas(c, w, h)) {
+                c->canvas[w][h] = pen;
+            }
         }
     }
 }
@@ -380,6 +398,27 @@ Result interpret_command(const char *command, History *his, Canvas *c) {
 	    draw_rect(c,p[0],p[1],p[2],p[3]);
         return RECT;
     }
+
+    if (strcmp(s, "circle") == 0) {
+        double p[3] = {0.0};
+        char *b[3];
+	    for (int i = 0 ; i < 3; i++){
+	        b[i] = strtok(NULL, " ");// 第一引数は2回目以降の呼び出しではNULLでよい
+	        if (b[i] == NULL){
+		        return ERRLACKARGS;
+	        }
+	    } 
+	    for (int i = 0 ; i < 3 ; i++){
+	        char *e;// *endptr
+	        long v = strtol(b[i],&e, 10);//文字を整数にへんかん
+	        if (*e != '\0'){
+		        return ERRNONINT;
+	        }
+	        p[i] = (double)v;
+	    }
+        draw_circle(c, (int)p[0], (int)p[1], p[2]);
+        return CIRCLE;       
+    }
     
     if (strcmp(s, "save") == 0) {
 	    s = strtok(NULL, " ");// filename
@@ -420,6 +459,8 @@ char *strresult(Result res) {
 	        return "1 line drawn";
         case RECT:
             return "1 rect drawn";
+        case CIRCLE:
+            return "1 circle drawn";
         case UNDO:
 	        return "undo!";
         case UNKNOWN:
