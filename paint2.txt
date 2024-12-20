@@ -1,0 +1,6 @@
+rect 20 10 40 20
+line 80 0 0 40
+line 0 0 80 40
+circle 40 20 10
+circle 60 20 10
+circle 20 20 10

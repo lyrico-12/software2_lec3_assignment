@@ -1,2 +1,6 @@
-line 10 10 20 20
-circle 40 20 10
+chpen *line 10 10 20 20
+chpen +
+line 10 10 10 20
+circle 20 20 20 10
+chpen o
+rect 20 20 30 10

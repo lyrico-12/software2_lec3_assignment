@@ -270,7 +270,7 @@ void draw_circle(Canvas *c, const int x0, const int y0, const double r) {
     for (int w = 0; w < width; w++) {
         for (int h = 0; h < height; h++) {
             dist = (w - x0) * (w - x0) + (h - y0) * (h - y0);
-            if (dist > r * r - 5.0 && dist < r * r + 5.0 && judge_in_canvas(c, w, h)) {
+            if (dist > r * r - 6.0 && dist < r * r + 6.0 && judge_in_canvas(c, w, h)) {
                 c->canvas[w][h] = pen;
             }
         }
