@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
     printf("\n"); // required especially for windows env
 
     // 最初の履歴にデフォルトのペンを追加しておく。
-    char s[] = "chpen *";
+    char s[] = "chpen *\n";
     his.begin = push_back(his.begin, s, his.bufsize);
     
     while (1) {
@@ -493,7 +493,7 @@ Result interpret_command(const char *command, History *his, Canvas *c) {
     
     if (strcmp(s, "undo") == 0) {
 	    reset_canvas(c);
-        if (his->begin == NULL) {
+        if (his->begin == NULL || linear_list_len(his->begin) == 1) {
             return UNDO;
         }
 
