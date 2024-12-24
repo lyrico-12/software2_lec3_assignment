@@ -1,6 +1,12 @@
 chpen *
+chpen *
 line 10 10 20 20
 rect 30 20 10 10
 circle 50 10 10
 chpen 0
 line 10 10 10 30
+line 20 30 30 20
+chpen !
+rect 70 30 10 10
+chpen ^
+circle 70 25 10
